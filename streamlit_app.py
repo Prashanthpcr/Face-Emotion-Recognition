@@ -10,8 +10,8 @@ from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
 # Load the trained model
-model = load_model("modelk1.h5")
-model.load_weights("modelk1.weights.h5")
+model = load_model("model1.h5")
+model.load_weights("model_weights1.weights.h5")
 
 # Load face cascade classifier
 face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
