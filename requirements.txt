@@ -8,3 +8,4 @@ protobuf
 pillow
 deepface
 tf-keras
+libGL.so.1
