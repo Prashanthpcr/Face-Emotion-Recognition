@@ -4,65 +4,75 @@ import streamlit as st
 from tensorflow import keras
 from keras.models import load_model
 from keras.preprocessing.image import img_to_array
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+
+# Load emotion labels
+emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+
+# Load the trained model
+model = load_model("modelk1.h5")
+model.load_weights("modelk1.weights.h5")
+
+# Load face cascade classifier
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
+class VideoTransformer(VideoTransformerBase):
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        
+        # Convert frame to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Detect faces in the frame
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+        for (x, y, w, h) in faces:
+            roi_gray = gray[y:y + h, x:x + w]
+            roi_gray = cv2.resize(roi_gray, (48, 48), interpolation=cv2.INTER_AREA)
+            if np.sum([roi_gray]) != 0:
+                roi = roi_gray.astype('float') / 255.0
+                roi = img_to_array(roi)
+                roi = np.expand_dims(roi, axis=0)
+                prediction = model.predict(roi)[0]
+                maxindex = int(np.argmax(prediction))
+                finalout = emotion_labels[maxindex]
+                output = str(finalout)
+                label_position = (x, y - 10)
+                cv2.putText(img, output, label_position, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+        return img
 
 def main():
-    st.title("Emotion Detection")
+    st.set_page_config(page_title="Real Time Face Emotion Detection", page_icon=":smiley:")
 
-    model = load_model("modelk1.keras")
-    model.load_weights('modelk1.weights.keras')
-    face_haar_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-    cap = cv2.VideoCapture(0)
+    st.title("Real Time Face Emotion Detection")
+    st.sidebar.title("Navigation")
 
-    if not cap.isOpened():
-        st.error("Error: Unable to open webcam.")
-        return
+    # Render navigation menu
+    page = st.sidebar.radio("Go to", ("Home", "Live Face Emotion Detection", "About"))
 
-    stframe = st.empty()
+    if page == "Home":
+        st.write("""
+        * Welcome to the Real Time Face Emotion Detection app!
+        * This app detects facial expressions in real time using your webcam.
+        * To start, click on "Live Face Emotion Detection" in the sidebar.
+        """)
+    
+    elif page == "Live Face Emotion Detection":
+        st.subheader("Webcam Live Feed")
+        st.write("""
+        * Get ready with all the emotions you can express!
+        * Click on the button below to start the live face emotion detection.
+        """)
+        webrtc_streamer(key="emotion-detection", video_processor_factory=VideoTransformer)
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-
-        if not ret:
-            st.error("Error: Unable to capture frame.")
-            break
-
-        height, width, _ = frame.shape
-        sub_img = frame[0:int(height/6), 0:int(width)]
-
-        black_rect = np.ones(sub_img.shape, dtype=np.uint8) * 0
-        res = cv2.addWeighted(sub_img, 0.77, black_rect, 0.23, 0)
-
-        gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_haar_cascade.detectMultiScale(gray_image)
-
-        try:
-            for (x, y, w, h) in faces:
-                cv2.rectangle(frame, pt1=(x, y), pt2=(x+w, y+h), color=(255, 0, 0), thickness=2)
-                roi_gray = gray_image[y-5:y+h+5, x-5:x+w+5]
-                roi_gray = cv2.resize(roi_gray, (48, 48))
-                image_pixels = img_to_array(roi_gray)
-                image_pixels = np.expand_dims(image_pixels, axis=0)
-                image_pixels /= 255
-                predictions = model.predict(image_pixels)
-                max_index = np.argmax(predictions[0])
-                emotion_detection = ('Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise', 'Neutral')
-                emotion_prediction = emotion_detection[max_index]
-                cv2.putText(res, "Sentiment: {}".format(emotion_prediction), (0, height//6 + 22 + 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (10, 10, 255), 2)
-                confidence = np.round(np.max(predictions[0]) * 100, 1)
-                cv2.putText(res, "Confidence: {}%".format(confidence), (width - 200, height//6 + 22 + 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (10, 10, 255), 2)
-        except:
-            pass
-
-        frame[0:int(height/6), 0:int(width)] = res
-
-        stframe.image(frame, channels="BGR", use_column_width=True)
-
-        if st.button("Stop"):
-            break
-
-    cap.release()
+    elif page == "About":
+        st.subheader("About")
+        st.write("""
+        * This app predicts facial emotions using a convolutional neural network (CNN).
+        * The CNN model was trained using the Keras and TensorFlow libraries.
+        * Face detection is achieved through OpenCV.
+        """)
 
 if __name__ == "__main__":
     main()
