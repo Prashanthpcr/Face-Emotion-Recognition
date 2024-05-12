@@ -4,3 +4,4 @@ tensorflow==2.16.1
 opencv-python-headless==4.5.5.64
 streamlit-webrtc
 protobuf~=4.21.5
+pillow
