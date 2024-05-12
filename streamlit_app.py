@@ -75,8 +75,11 @@ def main():
     elif choice == "Webcam Face Detection":
         st.header("Webcam Live Feed")
         st.write("Click on start to use webcam and detect your face emotion")
-        webrtc_streamer(key="example", mode=WebRtcMode.SENDRECV, rtc_configuration=RTC_CONFIGURATION,
-                        video_processor_factory=Faceemotion)
+        try:  # Wrap WebRTC streamer in a try-except block
+                webrtc_streamer(key="example", mode=WebRtcMode.SENDRECV, rtc_configuration=RTC_CONFIGURATION,
+                video_processor_factory=Faceemotion)
+        except Exception as e:  # Catch potential exceptions
+                st.error("An error occurred during WebRTC communication: " + str(e))
 
     elif choice == "About":
         st.subheader("About this app")
