@@ -4,7 +4,7 @@ tensorflow
 opencv-python
 opencv-python-headless
 streamlit-webrtc
-protobuf~
+protobuf
 pillow
 deepface
 tf-keras
