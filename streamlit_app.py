@@ -1,50 +1,50 @@
-import numpy as np
-from PIL import Image, ImageOps
 import cv2
+import numpy as np
 import streamlit as st
-import tensorflow as tf
-from tensorflow import keras
-from keras.models import load_model
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.preprocessing.image import img_to_array, array_to_img
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import img_to_array
 
-st.set_option('deprecation.showfileUploaderEncoding', False)
-
+# Load the pre-trained model
 model = load_model('modelk1.keras')
-model.load_weights('modelk1.weights.keras')
+model.load_weights('modelk1.weights.keras.h5')
+face_haar_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 
-st.write("""# Face Expression Recognition""")
-st.write("This Model predicts the expression on a persons face.")
-file = st.file_uploader("Please upload an image file", type=["jpg"])
+st.title("Emotion Detection")
 
+# Open the webcam
+cap = cv2.VideoCapture(0)
 
-def import_and_predict(image_data, model):
-    size = (150, 150)
-    image = ImageOps.fit(image_data, size, Image.ANTIALIAS)
-    image = np.asarray(image)
-    gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    face_haar_cascade = cv2.CascadeClassifier(
-        'haarcascade_frontalface_default.xml')
-    faces_detected = face_haar_cascade.detectMultiScale(gray_img, 1.32, 5)
-    for (x, y, w, h) in faces_detected:
-        roi_gray = gray_img[y:y+w, x:x+h]
-        roi_gray = cv2.resize(roi_gray, (48, 48))
-        img_pixels = img_to_array(roi_gray)
-        img_pixels = np.expand_dims(img_pixels, axis=0)
-        img_pixels /= 255
-        predictions = model.predict(img_pixels)
-        max_index = np.argmax(predictions[0])
-        emotions = ('Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness','Surprise', 'Neutral')
-        predicted = emotions[max_index]
-    return predicted
+while cap.isOpened():
+    _, frame = cap.read()
+    
+    height, width, _ = frame.shape
+    sub_img = frame[0:int(height/6), 0:int(width)]
 
-
-if file is None:
-    st.text("Please upload an image file")
-else:
-    image = Image.open(file)
-    st.image(image, use_column_width=True)
-    prediction = import_and_predict(image, model)
-    st.text("The given image has the following expression:")
-    st.write(prediction)
-    st.text("*****Built By Data Science Community SRM with 💜 *****")
+    black_rect = np.ones(sub_img.shape, dtype=np.uint8) * 0
+    res = cv2.addWeighted(sub_img, 0.77, black_rect, 0.23, 0)
+    
+    gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_haar_cascade.detectMultiScale(gray_image)
+    
+    try:
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, pt1=(x, y), pt2=(x+w, y+h), color=(255, 0, 0), thickness=2)
+            roi_gray = gray_image[y-5:y+h+5, x-5:x+w+5]
+            roi_gray = cv2.resize(roi_gray, (48, 48))
+            image_pixels = img_to_array(roi_gray)
+            image_pixels = np.expand_dims(image_pixels, axis=0)
+            image_pixels /= 255
+            predictions = model.predict(image_pixels)
+            max_index = np.argmax(predictions[0])
+            emotion_detection = ('angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral')
+            emotion_prediction = emotion_detection[max_index]
+            cv2.putText(res, f"Sentiment: {emotion_prediction}", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (10, 10, 255), 2)
+            confidence = f"Confidence: {np.round(np.max(predictions[0])*100,1)}%"
+            cv2.putText(res, confidence, (0, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (10, 10, 255), 2)
+    except Exception as e:
+        st.error(f"Error: {e}")
+    
+    frame[0:int(height/6), 0:int(width)] = res
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+    st.image(frame, channels="RGB", use_column_width=True)
