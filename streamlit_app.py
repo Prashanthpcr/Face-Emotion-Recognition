@@ -8,8 +8,8 @@ from keras.preprocessing.image import img_to_array
 def main():
     st.title("Emotion Detection")
 
-    model = load_model("modelk.keras")
-    model.load_weights('modelk.weights.keras')
+    model = load_model("modelk1.keras")
+    model.load_weights('modelk1.weights.keras')
     face_haar_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
     cap = cv2.VideoCapture(0)
 
