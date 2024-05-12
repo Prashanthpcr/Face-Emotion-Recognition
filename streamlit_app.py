@@ -1,78 +1,107 @@
 import cv2
-import numpy as np
 import streamlit as st
-from tensorflow import keras
-from keras.models import load_model
-from keras.preprocessing.image import img_to_array
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+import numpy as np
+from deepface import DeepFace
 
-# Load emotion labels
-emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+# Function to analyze facial attributes using DeepFace
+def analyze_frame(frame):
+    result = DeepFace.analyze(img_path=frame, actions=['age', 'gender', 'race', 'emotion'],
+                              enforce_detection=False,
+                              detector_backend="opencv",
+                              align=True,
+                              silent=False)
+    return result
 
-# Load the trained model
-model = load_model("model1.h5")
-model.load_weights("model_weights1.weights.h5")
+def overlay_text_on_frame(frame, texts):
+    overlay = frame.copy()
+    alpha = 0.9  # Adjust the transparency of the overlay
+    cv2.rectangle(overlay, (0, 0), (frame.shape[1], 100), (255, 255, 255), -1)  # White rectangle
+    cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
 
-# Load face cascade classifier
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+    text_position = 15 # Where the first text is put into the overlay
+    for text in texts:
+        cv2.putText(frame, text, (10, text_position), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        text_position += 20
 
-class VideoTransformer(VideoTransformerBase):
-    def transform(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        
-        # Convert frame to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Detect faces in the frame
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    return frame
 
-        for (x, y, w, h) in faces:
-            roi_gray = gray[y:y + h, x:x + w]
-            roi_gray = cv2.resize(roi_gray, (48, 48), interpolation=cv2.INTER_AREA)
-            if np.sum([roi_gray]) != 0:
-                roi = roi_gray.astype('float') / 255.0
-                roi = img_to_array(roi)
-                roi = np.expand_dims(roi, axis=0)
-                prediction = model.predict(roi)[0]
-                maxindex = int(np.argmax(prediction))
-                finalout = emotion_labels[maxindex]
-                output = str(finalout)
-                label_position = (x, y - 10)
-                cv2.putText(img, output, label_position, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+def facesentiment():
+    # st.title("Real-Time Facial Analysis with Streamlit")
+    # Create a VideoCapture object
+    cap = cv2.VideoCapture(0)
+    stframe = st.image([])  # Placeholder for the webcam feed
 
-        return img
+    while True:
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+
+        # Analyze the frame using DeepFace
+        result = analyze_frame(frame)
+
+        # Extract the face coordinates
+        face_coordinates = result[0]["region"]
+        x, y, w, h = face_coordinates['x'], face_coordinates['y'], face_coordinates['w'], face_coordinates['h']
+
+        # Draw bounding box around the face
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        text = f"{result[0]['dominant_emotion']}"
+        cv2.putText(frame, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+
+        # Convert the BGR frame to RGB for Streamlit
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Overlay white rectangle with text on the frame
+        texts = [
+            f"Age: {result[0]['age']}",
+            f"Face Confidence: {round(result[0]['face_confidence'],3)}",
+            # f"Gender: {result[0]['dominant_gender']} {result[0]['gender'][result[0]['dominant_gender']]}",
+            f"Gender: {result[0]['dominant_gender']} {round(result[0]['gender'][result[0]['dominant_gender']], 3)}",
+            f"Race: {result[0]['dominant_race']}",
+            f"Dominant Emotion: {result[0]['dominant_emotion']} {round(result[0]['emotion'][result[0]['dominant_emotion']], 1)}",
+        ]
+
+        frame_with_overlay = overlay_text_on_frame(frame_rgb, texts)
+
+        # Display the frame in Streamlit
+        stframe.image(frame_with_overlay, channels="RGB")
+
+    # Release the webcam and close all windows
+    cap.release()
+    cv2.destroyAllWindows()
 
 def main():
-    st.set_page_config(page_title="Real Time Face Emotion Detection", page_icon=":smiley:")
-
-    st.title("Real Time Face Emotion Detection")
-    st.sidebar.title("Navigation")
-
-    # Render navigation menu
-    page = st.sidebar.radio("Go to", ("Home", "Live Face Emotion Detection", "About"))
-
-    if page == "Home":
-        st.write("""
-        * Welcome to the Real Time Face Emotion Detection app!
-        * This app detects facial expressions in real time using your webcam.
-        * To start, click on "Live Face Emotion Detection" in the sidebar.
+    # Face Analysis Application #
+    # st.title("Real Time Face Emotion Detection Application")
+    activities = ["Webcam Face Detection", "About"]
+    choice = st.sidebar.selectbox("Select Activity", activities)
+    st.sidebar.markdown(
+        """ Developed by Shrimanta Satpati    
+            Email : satpatishrimanta@gmail.com  
         """)
-    
-    elif page == "Live Face Emotion Detection":
-        st.subheader("Webcam Live Feed")
-        st.write("""
-        * Get ready with all the emotions you can express!
-        * Click on the button below to start the live face emotion detection.
-        """)
-        webrtc_streamer(key="emotion-detection", video_processor_factory=VideoTransformer)
+    if choice == "Webcam Face Detection":
+        html_temp_home1 = """<div style="background-color:#6D7B8D;padding:10px">
+                                            <h4 style="color:white;text-align:center;">
+                                            Real time face emotion recognition of webcam feed using OpenCV, DeepFace and Streamlit.</h4>
+                                            </div>
+                                            </br>"""
+        st.markdown(html_temp_home1, unsafe_allow_html=True)
+        facesentiment()
 
-    elif page == "About":
-        st.subheader("About")
-        st.write("""
-        * This app predicts facial emotions using a convolutional neural network (CNN).
-        * The CNN model was trained using the Keras and TensorFlow libraries.
-        * Face detection is achieved through OpenCV.
-        """)
+    elif choice == "About":
+        st.subheader("About this app")
+
+        html_temp4 = """
+                                     		<div style="background-color:#98AFC7;padding:10px">
+                                     		<h4 style="color:white;text-align:center;">This Application is developed by Shrimanta Satpati. </h4>
+                                     		<h4 style="color:white;text-align:center;">Thanks for Visiting</h4>
+                                     		</div>
+                                     		<br></br>
+                                     		<br></br>"""
+
+        st.markdown(html_temp4, unsafe_allow_html=True)
+
+    else:
+        pass
 
 if __name__ == "__main__":
     main()
