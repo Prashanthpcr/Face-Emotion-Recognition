@@ -8,13 +8,13 @@ from keras.preprocessing.image import img_to_array
 from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfiguration, VideoProcessorBase, WebRtcMode
 
 # Define the emotions.
-emotion_labels = ['Angry','Disgust','Fear','Happy','Neutral', 'Sad', 'Surprise']
+emotion_labels = ['Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness','Surprise', 'Neutral']
 
 # Load model.
-classifier =load_model('model_78.h5')
+classifier =load_model('model1.h5')
 
 # load weights into new model
-classifier.load_weights("model_weights_78.h5")
+classifier.load_weights("model_weights1.weights.h5")
 
 # Load face using OpenCV
 try:
