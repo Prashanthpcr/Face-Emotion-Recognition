@@ -33,7 +33,7 @@ def import_and_predict(image_data, model):
         img_pixels /= 255
         predictions = model.predict(img_pixels)
         max_index = np.argmax(predictions[0])
-        emotions = ('ANGRY 😡', 'HAPPY 😀', 'NEUTRAL 😐', 'SAD 🙁')
+        emotions = ('Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness','Surprise', 'Neutral')
         predicted = emotions[max_index]
     return predicted
 
